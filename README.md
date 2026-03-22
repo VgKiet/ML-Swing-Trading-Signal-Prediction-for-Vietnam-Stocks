@@ -47,6 +47,20 @@ chỉ báo kỹ thuật.
 7.  Lọc tín hiệu bằng Donchian Channel và ATR
 8.  Trực quan hóa tín hiệu BUY/SELL trên biểu đồ
 
+## Ứng dụng Streamlit
+Dự án được tích hợp ứng dụng Streamlit thông qua file `app.py` nhằm hỗ trợ dự đoán tín hiệu BUY/SELL cổ phiếu theo thời gian thực.
+
+Ứng dụng cho phép người dùng:
+
+- Nhập mã cổ phiếu cần dự đoán
+- Tải dữ liệu giá mới nhất từ HOSE bằng tvDatafeed
+- Sử dụng mô hình đã huấn luyện (`model.pkl`) để dự đoán tín hiệu giao dịch
+- Hiển thị tín hiệu BUY/SELL trực tiếp trên biểu đồ giá cổ phiếu
+- Hỗ trợ trực quan hóa kết quả giúp nhà đầu tư dễ dàng theo dõi xu hướng thị trường
+
+## Cách chạy ứng dụng
+
+
 ## Kết quả
 
 Mô hình có khả năng phát hiện các điểm mua và bán tiềm năng trên dữ liệu
