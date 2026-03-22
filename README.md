@@ -59,7 +59,9 @@ Dự án được tích hợp ứng dụng Streamlit thông qua file `app.py` nh
 - Hỗ trợ trực quan hóa kết quả giúp nhà đầu tư dễ dàng theo dõi xu hướng thị trường
 
 ## Cách chạy ứng dụng
-
+``` bash
+streamlit run app.py
+```
 
 ## Kết quả
 
