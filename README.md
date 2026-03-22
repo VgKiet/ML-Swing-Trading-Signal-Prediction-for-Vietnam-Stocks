@@ -52,6 +52,7 @@ chỉ báo kỹ thuật.
 Mô hình có khả năng phát hiện các điểm mua và bán tiềm năng trên dữ liệu
 cổ phiếu lịch sử, hỗ trợ nhà đầu tư trong việc ra quyết định giao dịch
 theo phương pháp Swing Trading.
+![demo](https://github.com/VgKiet/ML-Swing-Trading-Signal-Prediction-for-Vietnam-Stocks/blob/master/image/demo.png?raw=true)
 
 ## File mô hình
 
