@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import joblib
 from tvDatafeed import TvDatafeed, Interval
-
+import time
 
 # ================= LOAD MODEL =================
 model = joblib.load("model/model.pkl")
@@ -12,40 +12,61 @@ scaler = joblib.load("model/scaler.pkl")
 
 
 # ================= UI =================
-st.title("📈 Stock Trading Signal Prediction - ML Logistic Regression")
-
-ticker = st.text_input(
-    "Nhập mã cổ phiếu (HPG, VNM, VIC...):",
-    "HPG"
-).upper().strip()
-
-
-# ================= LOAD DATA =================
 tv = TvDatafeed()
 
-try:
-    df = tv.get_hist(
-        symbol=ticker,
-        exchange="HOSE",
-        interval=Interval.in_daily,
-        n_bars=5000
-    )
-except:
-    st.error("Không tải được dữ liệu")
-    st.stop()
+st.title('Stock Price Prediction')
 
+user = st.text_input(
+    'Nhập mã cổ phiếu (ví dụ: HPG, SHS, BSR...)',
+    'HPG'
+)
+
+ticker = user.upper().strip()
+
+
+# Loading message
+loading_msg = st.empty()
+loading_msg.text("Đang lấy dữ liệu thị trường, vui lòng chờ vài giây...")
+
+
+# thử lần lượt các sàn
+exchanges = ["HOSE", "HNX", "UPCOM"]
+
+df = None
+selected_exchange = None
+
+
+for exchange in exchanges:
+    try:
+        df = tv.get_hist(
+            symbol=ticker,
+            exchange=exchange,
+            interval=Interval.in_daily,
+            n_bars=5000
+        )
+        if df is not None and not df.empty:
+            selected_exchange = exchange
+            break
+    except:
+        continue
+
+
+loading_msg.empty()
+
+
+# nếu không tìm thấy mã
 if df is None or df.empty:
-    st.warning("Mã không tồn tại trên HOSE")
+    st.warning(
+        f"Mã cổ phiếu **{ticker}** không tồn tại trên HOSE, HNX hoặc UPCOM.\n"
+        "Ví dụ hợp lệ: HPG, FPT, SHS, PVS, BSR, ACV..."
+    )
     st.stop()
 
-
+# Chuẩn hóa dữ liệu
 df.reset_index(inplace=True)
-df.rename(columns={"datetime": "time"}, inplace=True)
-
-
-for col in ["open", "high", "low", "close"]:
+df.rename(columns={'datetime': 'time'}, inplace=True)
+for col in ['open', 'high', 'low', 'close']:
     df[col] = df[col] / 1000
-
 
 # ================= FEATURE =================
 def supertrend_kivanc(df, periods=10, multiplier=7):
@@ -259,3 +280,246 @@ ax2.set_title(f"{ticker} End-of-Sequence ML Signal")
 
 st.pyplot(fig2)
 
+# ================= BACKTEST =================
+
+st.subheader("📊 Backtest lợi nhuận theo tháng")
+
+initial_capital = 100_000_000
+
+BUY_FEE = 0.0015
+SELL_FEE = 0.0015
+TAX = 0.001
+
+df_bt = df_test.copy()
+
+capital = initial_capital
+position = 0
+entry_price = 0
+
+trade_log = []
+equity_curve = []
+
+for i in range(len(df_bt)):
+
+    signal = df_bt.signal_plot.iloc[i]
+    price = df_bt.close.iloc[i]
+    time = df_bt.time.iloc[i]
+
+    # ================= BUY =================
+    if signal == 1 and position == 0:
+
+        entry_price = price
+
+        shares = capital / (price * (1 + BUY_FEE))
+
+        position = shares
+
+        entry_time = time
+
+
+    # ================= SELL =================
+    elif signal == -1 and position > 0:
+
+        exit_price = price
+
+        capital = position * exit_price * (1 - SELL_FEE - TAX)
+
+        trade_return = (
+            exit_price * (1 - SELL_FEE - TAX)
+            - entry_price * (1 + BUY_FEE)
+        ) / (entry_price * (1 + BUY_FEE))
+
+        trade_log.append({
+            "entry_time": entry_time,
+            "exit_time": time,
+            "entry_price": entry_price,
+            "exit_price": exit_price,
+            "capital": capital,
+            "trade_return": trade_return
+        })
+
+        position = 0
+
+
+    # ================= EQUITY UPDATE REALTIME =================
+    if position > 0:
+        equity_curve.append(position * price)
+    else:
+        equity_curve.append(capital)
+
+
+equity_df = pd.DataFrame({
+    "time": df_bt.time,
+    "equity": equity_curve
+})
+
+
+trades_df = pd.DataFrame(trade_log)
+
+
+# ================= MONTHLY PROFIT =================
+
+if trades_df.empty:
+
+    st.warning("Chưa có giao dịch để backtest")
+
+else:
+
+    trades_df["month"] = trades_df.exit_time.dt.to_period("M")
+
+    monthly_capital = trades_df.groupby("month")["capital"].last()
+
+    monthly_capital = monthly_capital.reset_index()
+
+    monthly_capital["profit_vnd"] = monthly_capital["capital"].diff()
+
+    monthly_capital.loc[0, "profit_vnd"] = \
+        monthly_capital.loc[0, "capital"] - initial_capital
+
+
+    # ================= RETURN % FIXED =================
+
+    monthly_capital["return_pct"] = (
+        monthly_capital["profit_vnd"]
+        / monthly_capital["capital"].shift(1)
+    ) * 100
+
+    monthly_capital.loc[0, "return_pct"] = (
+        monthly_capital.loc[0, "profit_vnd"]
+        / initial_capital
+    ) * 100
+
+
+    st.dataframe(monthly_capital)
+
+
+    # ================= PLOT MONTHLY PROFIT =================
+
+    fig4, ax4 = plt.subplots(figsize=(14,6))
+
+    ax4.bar(
+        monthly_capital["month"].astype(str),
+        monthly_capital["profit_vnd"]
+    )
+
+    ax4.set_title("Monthly Profit (VND)")
+
+    ax4.set_ylabel("Profit (VND)")
+
+    ax4.grid(alpha=0.3)
+
+    plt.xticks(rotation=45)
+
+    st.pyplot(fig4)
+
+
+    # ================= TOTAL PERFORMANCE =================
+
+    final_capital = equity_curve[-1]
+
+    total_return = (
+        (final_capital - initial_capital)
+        / initial_capital
+    ) * 100
+
+
+    # ================= MAX DRAWDOWN =================
+
+    equity_series = pd.Series(equity_curve)
+
+    rolling_max = equity_series.cummax()
+
+    drawdown = (
+        equity_series - rolling_max
+    ) / rolling_max
+
+    max_drawdown = drawdown.min() * 100
+
+
+    # ================= WINRATE =================
+
+    winrate = (
+        trades_df.trade_return > 0
+    ).mean() * 100
+
+
+    # ================= AVG TRADE RETURN =================
+
+    avg_trade_return = trades_df.trade_return.mean() * 100
+
+
+    # ================= PROFIT FACTOR =================
+
+    gross_profit = trades_df.loc[
+        trades_df.trade_return > 0,
+        "trade_return"
+    ].sum()
+
+    gross_loss = abs(
+        trades_df.loc[
+            trades_df.trade_return < 0,
+            "trade_return"
+        ].sum()
+    )
+
+    profit_factor = gross_profit / gross_loss if gross_loss != 0 else 0
+
+
+    # ================= SHARPE RATIO =================
+
+    sharpe_ratio = (
+        trades_df.trade_return.mean()
+        / trades_df.trade_return.std()
+        * np.sqrt(len(trades_df))
+        if trades_df.trade_return.std() != 0
+        else 0
+    )
+
+
+    # ================= SUMMARY TABLE =================
+
+    st.subheader("📊 Tổng kết hiệu suất Strategy")
+
+    summary_data = {
+        "Metric": [
+            "Vốn ban đầu",
+            "Vốn cuối",
+            "Total Return (%)",
+            "Max Drawdown (%)",
+            "Winrate (%)",
+            "Profit Factor",
+            "Avg Trade Return (%)",
+            "Sharpe Ratio"
+        ],
+        "Value": [
+            f"{initial_capital:,.0f} VND",
+            f"{final_capital:,.0f} VND",
+            f"{total_return:.2f}",
+            f"{max_drawdown:.2f}",
+            f"{winrate:.2f}",
+            f"{profit_factor:.2f}",
+            f"{avg_trade_return:.2f}",
+            f"{sharpe_ratio:.2f}"
+        ]
+    }
+
+    summary_df = pd.DataFrame(summary_data)
+
+    st.dataframe(summary_df, use_container_width=True)
+
+    # ================= EQUITY CURVE =================
+
+    st.subheader("📈 Equity Curve")
+
+    fig5, ax5 = plt.subplots(figsize=(15,6))
+
+    ax5.plot(
+        equity_df.time,
+        equity_df.equity
+    )
+
+    ax5.set_title("Equity Curve")
+
+    ax5.grid(alpha=0.3)
+
+    st.pyplot(fig5)
