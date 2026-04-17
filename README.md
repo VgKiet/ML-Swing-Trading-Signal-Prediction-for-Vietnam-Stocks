@@ -38,7 +38,7 @@ chỉ báo kỹ thuật.
 
 ## Quy trình thực hiện
 
-1.  Thu thập dữ liệu cổ phiếu từ HOSE bằng tvDatafeed
+1.  Thu thập dữ liệu cổ phiếu từ HOSE, HNX, UPCOM bằng tvDatafeed
 2.  Tạo nhãn dữ liệu Swing High / Swing Low
 3.  Trích xuất đặc trưng từ các chỉ báo kỹ thuật
 4.  Chuẩn hóa dữ liệu bằng StandardScaler
