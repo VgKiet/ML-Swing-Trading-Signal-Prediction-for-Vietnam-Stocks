@@ -59,7 +59,7 @@ Dự án được tích hợp ứng dụng Streamlit thông qua file `app.py` nh
 - Hỗ trợ trực quan hóa kết quả giúp nhà đầu tư dễ dàng theo dõi xu hướng thị trường
 
 ### Live Demo
-[https://ten-app.streamlit.app](https://ml-swing-trading-signal-prediction-for-vietnam-stocks.streamlit.app/)
+[https://ml-swing-trading-signal-prediction-for-vietnam-stocks.streamlit.app](https://ml-swing-trading-signal-prediction-for-vietnam-stocks.streamlit.app/)
 
 ## Cách chạy ứng dụng
 ``` bash
